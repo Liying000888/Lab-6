@@ -1,0 +1,139 @@
+---
+title: "Lab 6"
+format: html
+editor: visual
+embed-resources: true
+---
+
+Name:Liying Deng
+
+```{r}
+library(tidytext)
+library(data.table)
+library(ggplot2)
+library(readr)
+library(dplyr)
+mt_samples <- read_csv("https://raw.githubusercontent.com/USCbiostats/data-science-data/master/00_mtsamples/mtsamples.csv")
+mt_samples <- mt_samples %>%
+  select(description, medical_specialty, transcription)
+head(mt_samples)
+```
+
+```{r}
+print(mt_samples)
+```
+
+#Question 1
+
+```{r}
+mt_samples %>%
+  count(medical_specialty, sort = TRUE)
+```
+
+There are 40 catagories. This is a list of transcription samples and reports for each medical discipline in each medicare department.They are evenly distributed.
+
+#Question 2
+
+```{r}
+library(dplyr)
+library(ggplot2)
+mt_samples |>
+  unnest_tokens(token, transcription) |>
+  count(token) |>
+  top_n(20, n) |>
+  ggplot(aes(n, token)) +
+  geom_col()
+```
+#Conclusion : Yes, the result makes sense. This bar chart visualizes the top 20 most frequent words in a collection of transcriptions from medical records.The word “patient” appears with relatively high frequency, which makes sense in the context of medical transcriptions, where much of the content likely refers to patient care or patient conditions. we can easier to explore the frequency of medical terms or diagnostic words to gain insights into common conditions, treatments, or patient details being recorded in the transcriptions.
+
+#Question 3
+
+```{r}
+library(stringr)
+data("stop_words")
+library("forcats")
+mt_samples |>
+  unnest_tokens(word, transcription) |>
+  anti_join(stop_words, by = c("word")) |>
+  filter(!str_detect(word, "^[0-9]+$")) |>
+  count(word, sort = TRUE) |>
+  top_n(20, n) |>
+  ggplot(aes(n, fct_reorder(word, n))) +
+  geom_col()
+```
+#Conclusion: Words like “patient,” “procedure,” “pain,” “blood,” “diagnosis,” “anesthesia,” and “incision” are among the most frequent, indicating that the transcriptions contain detailed medical information.This helps in understanding that the text focuses on medical procedures, patient care, and diagnoses, giving us a much clearer insight into the nature of the transcriptions.
+
+#Question 4
+
+```{r}
+#Bi-gram visualize
+library(dplyr)
+library(ggplot2)
+library(tidytext)
+mt_samples |>
+  unnest_tokens(bigram, transcription, token = "ngrams", n = 2) |>  
+  count(bigram) |>                                                 
+  top_n(20, n) |>                                                   
+  ggplot(aes(n, bigram)) +                                         
+  geom_col()    
+#Tri-gram visualize
+mt_samples |>
+  unnest_tokens(trigram, transcription, token = "ngrams", n = 3) |>  
+  count(trigram) |>                                                 
+  top_n(20, n) |>                                                   
+  ggplot(aes(n, trigram)) +                                         
+  geom_col()    
+```
+#Compare with Bi-grams, Tri-grams provide more complete phrases that reflect specific actions or medical evaluations (e.g., "past medical history" or "the paitent has"). This level of detail gives a clearer understanding of the medical narratives being recorded.
+
+
+#Question 5
+
+```{r}
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(tidyr)
+bi_grams <- mt_samples %>%
+  unnest_tokens(bigram, transcription, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("word1", "word2"), sep = " ")
+after_patient <- bi_grams %>%
+  filter(word1 == "patient") %>%
+  count(word2, sort = TRUE) %>%
+  head(20)
+before_patient <- bi_grams %>%
+  filter(word2 == "patient") %>%
+  count(word1, sort = TRUE) %>%
+  head(20)
+ggplot(after_patient, aes(x = n, y = reorder(word2, n))) +
+  geom_col() +
+  labs(title = "Top Words Appearing After 'Patient'",
+       x = "Frequency",
+       y = "Word Following 'Patient'") +
+  theme_minimal()
+ggplot(before_patient, aes(x = n, y = reorder(word1, n))) +
+  geom_col() +
+  labs(title = "Top Words Appearing Before 'Patient'",
+       x = "Frequency",
+       y = "Word Preceding 'Patient'") +
+  theme_minimal()
+```
+#The most frequent words appearing directly after "patient" are "was," "is," and "has". The most frequent word before "patient" is "the".
+
+#Question 6
+
+```{r}
+library(dplyr)
+library(tidytext)
+data("stop_words")
+top_words_by_medical_specialty <- mt_samples %>%
+  unnest_tokens(word, transcription) %>%                   
+  anti_join(stop_words, by = "word") %>%                   
+  filter(!str_detect(word, "^[0-9]+$")) %>%             
+  group_by(medical_specialty) %>%             
+  count(word, sort = TRUE) %>%                    
+  top_n(5, n) %>%                   
+  ungroup()                                       
+top_words_by_medical_specialty
+```
+#We can see the top 5 words from the different medical specialty.
